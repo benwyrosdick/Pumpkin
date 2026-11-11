@@ -1,0 +1,27 @@
+crates/pumpkin-plugin-wit/v0.1/player.wit
+  s_b7ce93d3f21964::t_3debe96cf309e4 1101-1111
+crates/pumpkin-plugin-wit/v0.1/world.wit
+  s_b7ce93d3f21964::t_ae0850f14faa2b 903-905
+crates/pumpkin-wasm-host-v0_1/src/bindings.rs
+  s_b7ce93d3f21964::t_c1109203b22a34 25,67
+crates/pumpkin-wasm-host-v0_1/src/player.rs
+  s_b7ce93d3f21964::t_f3ea142adb96a4 2849-2894
+crates/pumpkin-wasm-host-v0_1/src/world.rs
+  s_b7ce93d3f21964::t_81c01cb0ff462e 1154-1169
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "be0c2b3a0457bf904f5e8c1786b6e14eb492944c",
+  "prompts": {},
+  "sessions": {
+    "s_b7ce93d3f21964": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "33b6a31b-5ae8-44ff-b9bf-a5ec8d432ee7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ben Wyrosdick <ben.wyrosdick@gmail.com>"
+    }
+  }
+}
