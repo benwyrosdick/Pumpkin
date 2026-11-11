@@ -1,12 +1,38 @@
 use crate::pumpkin::plugin::enchantments::{
     AttributeModifierSlot as WitAttributeModifierSlot, CustomEnchantment as WitCustomEnchantment,
-    EnchantmentManager as WitEnchantmentManager, HostEnchantmentManager,
+    EnchantmentCost as WitEnchantmentCost, EnchantmentManager as WitEnchantmentManager,
+    EnchantmentOptions as WitEnchantmentOptions, HostEnchantmentManager,
 };
-use pumpkin_core::server::enchantment::CustomEnchantmentEntry;
-use pumpkin_data::enchantment::{AttributeModifierSlot, Enchantment};
+use pumpkin_core::server::enchantment::{CustomEnchantmentEntry, EnchantmentOptions};
+use pumpkin_data::enchantment::{AttributeModifierSlot, Cost, Enchantment};
 use pumpkin_util::text::TextComponent;
 use pumpkin_wasm_host_common::state::PluginHostState;
 use wasmtime::component::Resource;
+
+async fn register_custom_enchantment(
+    host: &mut PluginHostState,
+    enchantment: WitCustomEnchantment,
+    options: EnchantmentOptions,
+) -> wasmtime::Result<Result<(), String>> {
+    let description = host.take(enchantment.description)?;
+    let entry = CustomEnchantmentEntry {
+        id: enchantment.id,
+        description,
+        max_level: enchantment.max_level,
+        anvil_cost: enchantment.anvil_cost,
+        supported_items: enchantment.supported_items,
+        weight: enchantment.weight,
+        slots: enchantment.slots.into_iter().map(to_data_slot).collect(),
+        exclusive_set: enchantment.exclusive_set,
+        options,
+    };
+
+    let server = host
+        .server
+        .as_ref()
+        .ok_or_else(|| wasmtime::Error::msg("Server not available"))?;
+    Ok(server.enchantment_manager.register(entry).await)
+}
 
 impl HostEnchantmentManager for PluginHostState {
     async fn register_enchantment(
@@ -14,23 +40,28 @@ impl HostEnchantmentManager for PluginHostState {
         _res: Resource<WitEnchantmentManager>,
         enchantment: WitCustomEnchantment,
     ) -> wasmtime::Result<Result<(), String>> {
-        let description = self.take(enchantment.description)?;
-        let entry = CustomEnchantmentEntry {
-            id: enchantment.id,
-            description,
-            max_level: enchantment.max_level,
-            anvil_cost: enchantment.anvil_cost,
-            supported_items: enchantment.supported_items,
-            weight: enchantment.weight,
-            slots: enchantment.slots.into_iter().map(to_data_slot).collect(),
-            exclusive_set: enchantment.exclusive_set,
-        };
+        register_custom_enchantment(self, enchantment, EnchantmentOptions::default()).await
+    }
 
-        let server = self
-            .server
-            .as_ref()
-            .ok_or_else(|| wasmtime::Error::msg("Server not available"))?;
-        Ok(server.enchantment_manager.register(entry).await)
+    async fn register_enchantment_with_options(
+        &mut self,
+        _res: Resource<WitEnchantmentManager>,
+        enchantment: WitCustomEnchantment,
+        options: WitEnchantmentOptions,
+    ) -> wasmtime::Result<Result<(), String>> {
+        let cost = |cost: WitEnchantmentCost| Cost {
+            base: cost.base,
+            per_level_above_first: cost.per_level_above_first,
+        };
+        let options = EnchantmentOptions {
+            min_cost: cost(options.min_cost),
+            max_cost: cost(options.max_cost),
+            in_enchanting_table: options.in_enchanting_table,
+            tradeable: options.tradeable,
+            treasure: options.treasure,
+            curse: options.curse,
+        };
+        register_custom_enchantment(self, enchantment, options).await
     }
 
     async fn get_enchantment(
@@ -117,6 +148,7 @@ impl HostEnchantmentManager for PluginHostState {
     }
 }
 
+/// Finds a vanilla or registered runtime (plugin) enchantment.
 #[must_use]
 pub fn find_vanilla_enchantment(id: &str) -> Option<&'static Enchantment> {
     Enchantment::from_name(id).or_else(|| {

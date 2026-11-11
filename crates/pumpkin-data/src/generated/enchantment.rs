@@ -388,6 +388,11 @@ impl Taggable for Enchantment {
     fn registry_id(&self) -> u16 {
         self.id as u16
     }
+    #[doc = r" Static tags only hold vanilla ids; runtime enchantments keep their own tags."]
+    #[inline]
+    fn has_tag(&self, tag: &'static Tag) -> bool {
+        tag.1.contains(&self.registry_id()) || crate::enchantment_registry::has_tag(self, tag)
+    }
 }
 impl PartialEq for Enchantment {
     fn eq(&self, other: &Self) -> bool {
@@ -460,6 +465,8 @@ impl Enchantment {
         &Self::VANISHING_CURSE,
         &Self::WIND_BURST,
     ];
+    #[doc = r" Vanilla enchantments only; see `enchantment_registry::all` to include"]
+    #[doc = r" runtime ones."]
     pub fn all() -> Iter<'static, &'static Self> {
         Self::ALL.iter()
     }
@@ -2805,6 +2812,7 @@ impl Enchantment {
             prevent_equipment_drop: false,
         },
     };
+    #[doc = r" Looks up a vanilla enchantment, then a runtime one."]
     pub fn from_name(name: &str) -> Option<&'static Self> {
         match name {
             "minecraft:aqua_affinity" | "aqua_affinity" => Some(&Self::AQUA_AFFINITY),
@@ -2854,9 +2862,10 @@ impl Enchantment {
             "minecraft:unbreaking" | "unbreaking" => Some(&Self::UNBREAKING),
             "minecraft:vanishing_curse" | "vanishing_curse" => Some(&Self::VANISHING_CURSE),
             "minecraft:wind_burst" | "wind_burst" => Some(&Self::WIND_BURST),
-            _ => None,
+            _ => crate::enchantment_registry::from_name(name),
         }
     }
+    #[doc = r" Looks up a vanilla enchantment, then a runtime one."]
     pub fn from_id(id: u8) -> Option<&'static Self> {
         match id {
             0u8 => Some(&Self::AQUA_AFFINITY),
@@ -2902,7 +2911,7 @@ impl Enchantment {
             40u8 => Some(&Self::UNBREAKING),
             41u8 => Some(&Self::VANISHING_CURSE),
             42u8 => Some(&Self::WIND_BURST),
-            _ => None,
+            _ => crate::enchantment_registry::from_id(id),
         }
     }
     pub fn can_enchant(&self, item: &'static Item) -> bool {

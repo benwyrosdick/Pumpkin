@@ -85,6 +85,7 @@ bindgen!({
         "pumpkin:plugin/enchantments@0.1.0.[method]enchantment-manager.get-enchantment": async | trappable,
         "pumpkin:plugin/enchantments@0.1.0.[method]enchantment-manager.has-enchantment": async | trappable,
         "pumpkin:plugin/enchantments@0.1.0.[method]enchantment-manager.register-enchantment": async | trappable,
+        "pumpkin:plugin/enchantments@0.1.0.[method]enchantment-manager.register-enchantment-with-options": async | trappable,
         "pumpkin:plugin/gui@0.1.0.[method]gui.clear-items": async | trappable,
         "pumpkin:plugin/gui@0.1.0.[method]gui.get-allow-grab-items": async | trappable,
         "pumpkin:plugin/gui@0.1.0.[method]gui.get-allow-put-items": async | trappable,

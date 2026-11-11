@@ -24,6 +24,7 @@ use pumpkin_data::data_component_impl::combat::{Modifier, Operation};
 use pumpkin_data::data_component_impl::{
     AttributeModifiersImpl, CustomNameImpl, EnchantmentsImpl, LoreImpl,
 };
+use pumpkin_data::item_stack::ItemStack;
 use pumpkin_nbt::tag::NbtTag;
 use pumpkin_protocol::codec::data_component::{deserialize, serialize};
 use std::borrow::Cow;
@@ -38,9 +39,26 @@ pub(crate) fn from_wit_data_component(id: WitDataComponent) -> DataComponent {
     unsafe { std::mem::transmute(id as u8) }
 }
 
-pub(crate) fn to_wit_enchantment(id: &Enchantment) -> WitEnchantment {
-    // SAFETY: WIT enum is generated in the same order as the internal enum
-    unsafe { std::mem::transmute(id.id) }
+/// The WIT enum only covers vanilla enchantments, so runtime (plugin) ones map to `None`.
+pub(crate) fn to_wit_enchantment(id: &Enchantment) -> Option<WitEnchantment> {
+    (usize::from(id.id) < Enchantment::ALL.len()).then(|| {
+        // SAFETY: WIT enum is generated in the same order as the internal enum, and the
+        // id was just checked to be a vanilla one.
+        unsafe { std::mem::transmute::<u8, WitEnchantment>(id.id) }
+    })
+}
+
+/// Custom-data namespace for plugin enchantments that aren't registered as real ones.
+const CUSTOM_ENCHANTMENTS: &str = "pumpkin:enchantments";
+
+/// The level of a registered enchantment in the stack's enchantments component.
+fn enchantment_level(stack: &ItemStack, enchantment: &Enchantment) -> Option<i32> {
+    stack
+        .get_data_component::<EnchantmentsImpl>()?
+        .enchantment
+        .iter()
+        .find(|(e, _)| *e == enchantment)
+        .map(|(_, level)| *level)
 }
 
 pub(crate) fn from_wit_enchantment(id: WitEnchantment) -> &'static Enchantment {
@@ -148,10 +166,13 @@ impl HostItemStack for PluginHostState {
             && let Some(enc_impl) = data.as_any().downcast_ref::<EnchantmentsImpl>()
         {
             for (enc, level) in enc_impl.enchantment.iter() {
-                enchantments.push(WitEnchantmentValue {
-                    enchantment: to_wit_enchantment(enc),
-                    level: *level as u32,
-                });
+                // Runtime enchantments are listed by `get_custom_enchantments` instead.
+                if let Some(enchantment) = to_wit_enchantment(enc) {
+                    enchantments.push(WitEnchantmentValue {
+                        enchantment,
+                        level: *level as u32,
+                    });
+                }
             }
         }
         Ok(enchantments)
@@ -234,7 +255,7 @@ impl HostItemStack for PluginHostState {
 
         if let Some(compound) = stack.custom_data_compound()
             && let Some(pumpkin_encs) = compound
-                .get("pumpkin:enchantments")
+                .get(CUSTOM_ENCHANTMENTS)
                 .and_then(NbtTag::extract_compound)
         {
             for (k, v) in &pumpkin_encs.child_tags {
@@ -275,46 +296,27 @@ impl HostItemStack for PluginHostState {
         let stack = self.get(&res)?;
         let mut stack = stack.lock().await;
 
-        stack.set_custom_data(
-            "pumpkin:enchantments",
-            &enchantment_id,
-            NbtTag::Int(level as i32),
-        );
-
-        if let Some(vanilla) = super::enchantment::find_vanilla_enchantment(&enchantment_id) {
-            let mut current_encs = if let Some((_, Some(data))) = stack
-                .patch
-                .iter()
-                .find(|(id, _)| *id == DataComponent::Enchantments)
-            {
-                data.as_any()
-                    .downcast_ref::<EnchantmentsImpl>()
-                    .map(|e| e.enchantment.clone().into_owned())
-                    .unwrap_or_default()
-            } else {
-                Vec::new()
-            };
-
-            current_encs.retain(|(e, _)| e.id != vanilla.id);
-            current_encs.push((vanilla, level as i32));
-
-            if let Some((_, data)) = stack
-                .patch
-                .iter_mut()
-                .find(|(id, _)| *id == DataComponent::Enchantments)
-            {
-                *data = Some(Box::new(EnchantmentsImpl {
-                    enchantment: Cow::from(current_encs),
-                }));
-            } else {
-                stack.patch.push((
-                    DataComponent::Enchantments,
-                    Some(Box::new(EnchantmentsImpl {
-                        enchantment: Cow::from(current_encs),
-                    })),
-                ));
-            }
-        }
+        // A registered enchantment (vanilla or plugin) is stored as a real one, so the
+        // client shows it and the grindstone and anvil handle it.
+        let Some(enchantment) = super::enchantment::find_vanilla_enchantment(&enchantment_id)
+        else {
+            stack.set_custom_data(
+                CUSTOM_ENCHANTMENTS,
+                &enchantment_id,
+                NbtTag::Int(level as i32),
+            );
+            return Ok(());
+        };
+        stack.remove_custom_data(CUSTOM_ENCHANTMENTS, &enchantment_id);
+        let mut enchantments = stack
+            .get_data_component::<EnchantmentsImpl>()
+            .map(|e| e.enchantment.to_vec())
+            .unwrap_or_default();
+        enchantments.retain(|(e, _)| *e != enchantment);
+        enchantments.push((enchantment, level as i32));
+        stack.set_data_component(EnchantmentsImpl {
+            enchantment: Cow::from(enchantments),
+        });
 
         Ok(())
     }
@@ -327,7 +329,7 @@ impl HostItemStack for PluginHostState {
         let stack = self.get(&res)?;
         let mut stack = stack.lock().await;
 
-        stack.remove_custom_data("pumpkin:enchantments", &enchantment_id);
+        stack.remove_custom_data(CUSTOM_ENCHANTMENTS, &enchantment_id);
 
         if let Some(vanilla) = super::enchantment::find_vanilla_enchantment(&enchantment_id)
             && let Some((_, Some(data))) = stack
@@ -352,27 +354,17 @@ impl HostItemStack for PluginHostState {
         let stack = self.get(&res)?;
         let stack = stack.lock().await;
 
-        if let Some(NbtTag::Int(level)) =
-            stack.get_custom_data("pumpkin:enchantments", &enchantment_id)
-        {
-            return Ok(Some(level.max(1) as u32));
-        }
-
-        if let Some(vanilla) = super::enchantment::find_vanilla_enchantment(&enchantment_id)
-            && let Some((_, Some(data))) = stack
-                .patch
-                .iter()
-                .find(|(id, _)| *id == DataComponent::Enchantments)
-            && let Some(enc_impl) = data.as_any().downcast_ref::<EnchantmentsImpl>()
-            && let Some((_, level)) = enc_impl
-                .enchantment
-                .iter()
-                .find(|(e, _)| e.id == vanilla.id)
-        {
-            return Ok(Some((*level).max(1) as u32));
-        }
-
-        Ok(None)
+        // Registered enchantments only count when really on the item: a leftover custom
+        // data entry must not survive the grindstone.
+        let level = super::enchantment::find_vanilla_enchantment(&enchantment_id).map_or_else(
+            || {
+                stack
+                    .get_custom_data(CUSTOM_ENCHANTMENTS, &enchantment_id)
+                    .and_then(|level| level.extract_int())
+            },
+            |enchantment| enchantment_level(&stack, enchantment),
+        );
+        Ok(level.map(|level| level.max(1) as u32))
     }
 
     async fn has_custom_enchantment(
@@ -383,21 +375,12 @@ impl HostItemStack for PluginHostState {
         let stack = self.get(&res)?;
         let stack = stack.lock().await;
 
-        if stack.has_custom_data("pumpkin:enchantments", &enchantment_id) {
-            return Ok(true);
-        }
-
-        if let Some(vanilla) = super::enchantment::find_vanilla_enchantment(&enchantment_id)
-            && let Some((_, Some(data))) = stack
-                .patch
-                .iter()
-                .find(|(id, _)| *id == DataComponent::Enchantments)
-            && let Some(enc_impl) = data.as_any().downcast_ref::<EnchantmentsImpl>()
-        {
-            return Ok(enc_impl.enchantment.iter().any(|(e, _)| e.id == vanilla.id));
-        }
-
-        Ok(false)
+        Ok(
+            super::enchantment::find_vanilla_enchantment(&enchantment_id).map_or_else(
+                || stack.has_custom_data(CUSTOM_ENCHANTMENTS, &enchantment_id),
+                |enchantment| enchantment_level(&stack, enchantment).is_some(),
+            ),
+        )
     }
 
     async fn get_attribute_modifiers(

@@ -68,8 +68,10 @@ fn enchanted_book_offer_items(
     use rand::{RngExt, seq::IndexedRandom};
     use std::borrow::Cow;
 
-    let enchantment_id = *EnchantmentTag::MINECRAFT_TRADEABLE.1.choose(rng)? as u8;
-    let enchantment = Enchantment::from_id(enchantment_id)?;
+    // Vanilla and runtime (plugin) enchantments.
+    let enchantment =
+        *pumpkin_data::enchantment_registry::tagged(&EnchantmentTag::MINECRAFT_TRADEABLE)
+            .choose(rng)?;
     let level = rng.random_range(1..=enchantment.max_level);
     let mut emeralds = 2 + rng.random_range(0..5 + level * 10) + 3 * level;
     if enchantment.has_tag(&EnchantmentTag::MINECRAFT_DOUBLE_TRADE_PRICE) {

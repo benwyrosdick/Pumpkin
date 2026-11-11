@@ -195,6 +195,9 @@ pub mod enchantment;
 #[cfg(feature = "enchantment")]
 pub use enchantment::*;
 
+#[cfg(feature = "enchantment")]
+pub mod enchantment_registry;
+
 #[cfg(feature = "entity")]
 pub mod entity {
     #[cfg(feature = "entity_pose")]

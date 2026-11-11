@@ -95,8 +95,9 @@ pub static ENTITY_TYPE_ARGUMENT: ResourceArgument =
 
 pub static ENCHANTMENT_ARGUMENT: ResourceArgument =
     ResourceArgument(ENCHANTMENT_REGISTRY, &|id: Identifier| {
-        pumpkin_data::Enchantment::from_name(id.path())
-            .or_else(|| pumpkin_data::Enchantment::from_name(&id.to_string()))
+        // Full id first, so a plugin's `other:sharpness` doesn't resolve to vanilla.
+        pumpkin_data::Enchantment::from_name(&id.to_string())
+            .or_else(|| pumpkin_data::Enchantment::from_name(id.path()))
             .map(|value| value as &'static (dyn Any + Send + Sync))
     });
 
@@ -178,9 +179,10 @@ impl<S: crate::source::CommandSource> ArgumentType<S> for ResourceArgument {
                 .filter_and_suggest_iter(entity_types)
                 .build()
         } else if self.0 == ENCHANTMENT_REGISTRY {
-            let enchantments = pumpkin_data::Enchantment::ALL
-                .iter()
-                .map(|e| format!("minecraft:{}", e.name));
+            // `name` is already namespaced; includes runtime (plugin) enchantments.
+            let enchantments = pumpkin_data::enchantment_registry::all()
+                .into_iter()
+                .map(|e| e.name.to_string());
             suggestions_builder
                 .filter_and_suggest_iter(enchantments)
                 .build()

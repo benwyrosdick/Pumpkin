@@ -146,7 +146,8 @@ pub use display::{
 };
 pub use enchantment::{
     AttributeModifierSlot, CustomEnchantment, CustomEnchantmentValue, Enchantment,
-    EnchantmentBuilder, EnchantmentError, EnchantmentManager, RegistrableEnchantment,
+    EnchantmentBuilder, EnchantmentCost, EnchantmentError, EnchantmentManager, EnchantmentOptions,
+    RegistrableEnchantment,
 };
 pub use entity_statuses_wit::EntityStatus;
 pub use events::{EventHandler, FromIntoEvent};

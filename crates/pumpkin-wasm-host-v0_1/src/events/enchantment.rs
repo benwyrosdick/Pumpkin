@@ -91,9 +91,12 @@ impl ToFromWasmEvent for EnchantItemEvent {
         let enchantments_to_add = self
             .enchantments_to_add
             .iter()
-            .map(|(enc, level)| WitEnchantmentValue {
-                enchantment: to_wit_enchantment(enc),
-                level: *level as u32,
+            // The WIT enum can't represent runtime (plugin) enchantments.
+            .filter_map(|(enc, level)| {
+                Some(WitEnchantmentValue {
+                    enchantment: to_wit_enchantment(enc)?,
+                    level: *level as u32,
+                })
             })
             .collect();
 
@@ -126,5 +129,18 @@ impl ToFromWasmEvent for EnchantItemEvent {
             }
             _ => panic!("unexpected event type"),
         }
+    }
+
+    fn apply_wasm_event(&mut self, event: Event, state: &mut PluginHostState) {
+        // Plugins can't see runtime (plugin-registered) enchantments, which the WIT enum
+        // can't represent, so they can't have removed them either: keep them.
+        let hidden: Vec<_> = self
+            .enchantments_to_add
+            .iter()
+            .filter(|(enchantment, _)| to_wit_enchantment(enchantment).is_none())
+            .copied()
+            .collect();
+        *self = Self::from_wasm_event(event, state);
+        self.enchantments_to_add.extend(hidden);
     }
 }

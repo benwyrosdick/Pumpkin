@@ -62,23 +62,57 @@ impl DataComponentImpl for AttributeModifiersImpl {
 pub struct EnchantmentsImpl {
     pub enchantment: Cow<'static, [(&'static Enchantment, i32)]>,
 }
+/// An enchantment level whose enchantment isn't registered.
+pub type UnknownEnchantment = (String, i32);
+
+/// Resolves an enchantment name from saved data, reserving a runtime placeholder for
+/// unregistered namespaced names (see [`crate::enchantment_registry::placeholder`]).
+#[must_use]
+pub fn resolve_saved_enchantment(name: &str) -> Option<&'static Enchantment> {
+    Enchantment::from_name(name)
+        .or_else(|| Enchantment::from_name(&format!("minecraft:{name}")))
+        .or_else(|| crate::enchantment_registry::placeholder(name))
+}
+
+/// Reads an enchantment-level map, splitting off the names that can't be resolved.
+fn read_enchantment_levels(
+    data: &NbtTag,
+) -> Option<(Vec<(&'static Enchantment, i32)>, Vec<UnknownEnchantment>)> {
+    let compound = data.extract_compound()?;
+    let data = if let Some(NbtTag::Compound(levels)) = compound.child_tags.get("levels") {
+        &levels.child_tags
+    } else {
+        &compound.child_tags
+    };
+    let mut known = Vec::with_capacity(data.len());
+    let mut unknown = Vec::new();
+    for (name, level) in data {
+        let level = level.extract_int()?;
+        match resolve_saved_enchantment(name) {
+            Some(enchantment) => known.push((enchantment, level)),
+            None => unknown.push((name.to_string(), level)),
+        }
+    }
+    Some((known, unknown))
+}
+
 impl EnchantmentsImpl {
     pub fn read_data(data: &NbtTag) -> Option<Self> {
-        let compound = data.extract_compound()?;
-        let data = if let Some(NbtTag::Compound(levels)) = compound.child_tags.get("levels") {
-            &levels.child_tags
-        } else {
-            &compound.child_tags
-        };
-        let mut enc = Vec::with_capacity(data.len());
-        for (name, level) in data {
-            let enchantment = Enchantment::from_name(name.as_ref())
-                .or_else(|| Enchantment::from_name(&format!("minecraft:{name}")))?;
-            enc.push((enchantment, level.extract_int()?));
-        }
-        Some(Self {
-            enchantment: Cow::from(enc),
-        })
+        Self::read_data_keeping_unknown(data)
+            .filter(|(_, unknown)| unknown.is_empty())
+            .map(|(enchantments, _)| enchantments)
+    }
+
+    /// Like [`Self::read_data`], but returns enchantments that aren't registered instead
+    /// of failing, so the caller can keep them.
+    pub fn read_data_keeping_unknown(data: &NbtTag) -> Option<(Self, Vec<UnknownEnchantment>)> {
+        let (known, unknown) = read_enchantment_levels(data)?;
+        Some((
+            Self {
+                enchantment: Cow::from(known),
+            },
+            unknown,
+        ))
     }
 }
 impl DataComponentImpl for EnchantmentsImpl {
@@ -1220,21 +1254,21 @@ pub struct StoredEnchantmentsImpl {
 }
 impl StoredEnchantmentsImpl {
     pub fn read_data(data: &NbtTag) -> Option<Self> {
-        let compound = data.extract_compound()?;
-        let data = if let Some(NbtTag::Compound(levels)) = compound.child_tags.get("levels") {
-            &levels.child_tags
-        } else {
-            &compound.child_tags
-        };
-        let mut enc = Vec::with_capacity(data.len());
-        for (name, level) in data {
-            let enchantment = Enchantment::from_name(name.as_ref())
-                .or_else(|| Enchantment::from_name(&format!("minecraft:{name}")))?;
-            enc.push((enchantment, level.extract_int()?));
-        }
-        Some(Self {
-            enchantment: Cow::from(enc),
-        })
+        Self::read_data_keeping_unknown(data)
+            .filter(|(_, unknown)| unknown.is_empty())
+            .map(|(enchantments, _)| enchantments)
+    }
+
+    /// Like [`Self::read_data`], but returns enchantments that aren't registered instead
+    /// of failing, so the caller can keep them.
+    pub fn read_data_keeping_unknown(data: &NbtTag) -> Option<(Self, Vec<UnknownEnchantment>)> {
+        let (known, unknown) = read_enchantment_levels(data)?;
+        Some((
+            Self {
+                enchantment: Cow::from(known),
+            },
+            unknown,
+        ))
     }
 }
 impl DataComponentImpl for StoredEnchantmentsImpl {

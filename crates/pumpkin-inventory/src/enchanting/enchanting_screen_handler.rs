@@ -194,7 +194,8 @@ impl EnchantingTableScreenHandler {
         enchant_level = enchant_level.max(1);
 
         let mut available = Vec::new();
-        for enchant in Enchantment::all() {
+        // Vanilla and runtime (plugin) enchantments.
+        for enchant in &pumpkin_data::enchantment_registry::all() {
             if enchant.has_tag(&EnchantmentTag::MINECRAFT_IN_ENCHANTING_TABLE)
                 && enchant.can_enchant(item.item)
             {

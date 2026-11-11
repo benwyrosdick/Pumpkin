@@ -6,6 +6,15 @@ impl PendingConnection {
         let version = CURRENT_MC_VERSION;
         let synced = server.datapack_manager.get_all_synced_registries();
         for reg in &synced {
+            if reg.registry_id == "minecraft:enchantment" {
+                let entries = server
+                    .enchantment_manager
+                    .client_registry(reg.registry_entries.clone())
+                    .await;
+                self.send_packet_now(&CRegistryData::new(&reg.registry_id, &entries))
+                    .await;
+                continue;
+            }
             self.send_packet_now(&CRegistryData::new(&reg.registry_id, &reg.registry_entries))
                 .await;
         }

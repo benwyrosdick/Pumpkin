@@ -85,10 +85,41 @@ interface enchantments {
     exclusive-set: list<string>,
   }
 
+  /// Enchanting level range for an enchantment level: `base + per-level-above-first * (level - 1)`.
+  record enchantment-cost {
+    base: s32,
+    per-level-above-first: s32,
+  }
+
+  /// How players can obtain a custom enchantment, beyond being applied by a plugin.
+  record enchantment-options {
+    /// Minimum enchanting level for each enchantment level.
+    min-cost: enchantment-cost,
+    /// Maximum enchanting level for each enchantment level.
+    max-cost: enchantment-cost,
+    /// Offered by the enchanting table.
+    in-enchanting-table: bool,
+    /// Sold on enchanted books by librarian villagers.
+    tradeable: bool,
+    /// Treasure: never offered by the enchanting table, and costs double from librarians.
+    treasure: bool,
+    /// A curse: kept by the grindstone and shown in red.
+    curse: bool,
+  }
+
   /// Global manager for registering and querying custom enchantments.
+  ///
+  /// Registered enchantments are real enchantments: clients show them in tooltips, and the
+  /// enchanting table, anvil, grindstone and librarians handle them like vanilla ones.
+  /// Clients learn the enchantment list when they join, so an enchantment first registered
+  /// after players have joined is rejected until the server restarts. Registering an
+  /// already-registered id again succeeds and keeps the original definition.
   resource enchantment-manager {
-    /// Registers a new custom enchantment with the server.
+    /// Registers a new custom enchantment with the server, obtainable only through plugins.
     register-enchantment: func(enchantment: custom-enchantment) -> result<_, string>;
+
+    /// Registers a new custom enchantment with options for how players can obtain it.
+    register-enchantment-with-options: func(enchantment: custom-enchantment, options: enchantment-options) -> result<_, string>;
 
     /// Gets an enchantment definition by its ID.
     get-enchantment: func(id: string) -> option<custom-enchantment>;

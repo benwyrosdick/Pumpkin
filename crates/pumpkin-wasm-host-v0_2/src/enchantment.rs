@@ -4,7 +4,7 @@ use crate::pumpkin::plugin::enchantments::{
     EnchantmentManager as WitEnchantmentManager, HostEnchantmentManager,
     HostEnchantmentManagerWithStore,
 };
-use pumpkin_core::server::enchantment::CustomEnchantmentEntry;
+use pumpkin_core::server::enchantment::{CustomEnchantmentEntry, EnchantmentOptions};
 use pumpkin_data::enchantment::{AttributeModifierSlot, Enchantment};
 use pumpkin_util::text::TextComponent;
 use pumpkin_wasm_host_common::state::PluginHostState;
@@ -32,6 +32,7 @@ impl HostEnchantmentManagerWithStore<PluginHostState> for HasSelf<PluginHostStat
             weight: enchantment.weight,
             slots: enchantment.slots.into_iter().map(to_data_slot).collect(),
             exclusive_set: enchantment.exclusive_set,
+            options: EnchantmentOptions::default(),
         };
 
         let server = accessor.server()?;
@@ -110,6 +111,7 @@ impl HostEnchantmentManagerWithStore<PluginHostState> for HasSelf<PluginHostStat
     }
 }
 
+/// Finds a vanilla or registered runtime (plugin) enchantment.
 #[must_use]
 pub fn find_vanilla_enchantment(id: &str) -> Option<&'static Enchantment> {
     Enchantment::from_name(id).or_else(|| {

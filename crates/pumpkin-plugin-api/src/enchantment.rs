@@ -24,6 +24,9 @@
 //!             .weight(2)
 //!             .slots([AttributeModifierSlot::MainHand])
 //!             .exclusive_with("custom:poison_touch")
+//!             // Also obtainable from the enchanting table and librarians.
+//!             .in_enchanting_table(true)
+//!             .tradeable(true)
 //!     ).expect("failed to register custom enchantment");
 //! }
 //! ```
@@ -42,7 +45,8 @@
 //! ```
 
 pub use crate::wit::pumpkin::plugin::enchantments::{
-    AttributeModifierSlot, CustomEnchantment, Enchantment, EnchantmentManager,
+    AttributeModifierSlot, CustomEnchantment, Enchantment, EnchantmentCost, EnchantmentManager,
+    EnchantmentOptions,
 };
 pub use crate::wit::pumpkin::plugin::item_stack::CustomEnchantmentValue;
 use crate::{Context, Server, TextComponent};
@@ -83,6 +87,27 @@ pub struct EnchantmentBuilder {
     weight: u32,
     slots: Vec<AttributeModifierSlot>,
     exclusive_set: Vec<String>,
+    options: EnchantmentOptions,
+}
+
+impl Default for EnchantmentOptions {
+    /// Costs like a common vanilla enchantment (Efficiency), obtainable only through plugins.
+    fn default() -> Self {
+        Self {
+            min_cost: EnchantmentCost {
+                base: 1,
+                per_level_above_first: 10,
+            },
+            max_cost: EnchantmentCost {
+                base: 51,
+                per_level_above_first: 10,
+            },
+            in_enchanting_table: false,
+            tradeable: false,
+            treasure: false,
+            curse: false,
+        }
+    }
 }
 
 impl EnchantmentBuilder {
@@ -103,6 +128,7 @@ impl EnchantmentBuilder {
             weight: 5,
             slots: vec![AttributeModifierSlot::MainHand],
             exclusive_set: Vec::new(),
+            options: EnchantmentOptions::default(),
         }
     }
 
@@ -160,6 +186,64 @@ impl EnchantmentBuilder {
     pub fn exclusive_set(mut self, set: impl IntoIterator<Item = impl Into<String>>) -> Self {
         self.exclusive_set = set.into_iter().map(Into::into).collect();
         self
+    }
+
+    /// Sets the enchanting level range at level 1, and how much it rises per level
+    /// (default: 1, +10 per level). The table offers this enchantment at a level whose range
+    /// contains the table's enchanting level.
+    #[must_use]
+    pub const fn min_cost(mut self, base: i32, per_level_above_first: i32) -> Self {
+        self.options.min_cost = EnchantmentCost {
+            base,
+            per_level_above_first,
+        };
+        self
+    }
+
+    /// Sets the top of the enchanting level range at level 1, and how much it rises per
+    /// level (default: 51, +10 per level).
+    #[must_use]
+    pub const fn max_cost(mut self, base: i32, per_level_above_first: i32) -> Self {
+        self.options.max_cost = EnchantmentCost {
+            base,
+            per_level_above_first,
+        };
+        self
+    }
+
+    /// Offers the enchantment at the enchanting table (default: false).
+    #[must_use]
+    pub const fn in_enchanting_table(mut self, value: bool) -> Self {
+        self.options.in_enchanting_table = value;
+        self
+    }
+
+    /// Lets librarian villagers sell it on enchanted books (default: false).
+    #[must_use]
+    pub const fn tradeable(mut self, value: bool) -> Self {
+        self.options.tradeable = value;
+        self
+    }
+
+    /// Makes it a treasure enchantment: never from the enchanting table, and costs double
+    /// from librarians (default: false).
+    #[must_use]
+    pub const fn treasure(mut self, value: bool) -> Self {
+        self.options.treasure = value;
+        self
+    }
+
+    /// Makes it a curse: kept by the grindstone and shown in red (default: false).
+    #[must_use]
+    pub const fn curse(mut self, value: bool) -> Self {
+        self.options.curse = value;
+        self
+    }
+
+    /// How players can obtain the enchantment, as configured so far.
+    #[must_use]
+    pub const fn options(&self) -> EnchantmentOptions {
+        self.options
     }
 
     /// Validates the enchantment parameters.
@@ -232,9 +316,10 @@ pub trait RegistrableEnchantment {
 
 impl RegistrableEnchantment for EnchantmentBuilder {
     fn register(self, manager: &EnchantmentManager) -> Result<(), EnchantmentError> {
+        let options = self.options;
         let enchantment = self.build()?;
         manager
-            .register_enchantment(enchantment)
+            .register_enchantment_with_options(enchantment, options)
             .map_err(EnchantmentError::RegistrationFailed)
     }
 }

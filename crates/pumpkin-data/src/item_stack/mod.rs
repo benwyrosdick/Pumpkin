@@ -4,8 +4,8 @@ use crate::data_component::DataComponent::Enchantments;
 use crate::data_component_impl::{
     BlocksAttacksImpl, ConsumableImpl, CustomDataImpl, DamageImpl, DamageResistantImpl,
     DataComponentImpl, EnchantmentsImpl, IDSet, MaxDamageImpl, MaxStackSizeImpl, Rarity,
-    RarityImpl, SwingAnimationImpl, ToolImpl, UnbreakableImpl, UseCooldownImpl, get, get_mut,
-    read_data,
+    RarityImpl, StoredEnchantmentsImpl, SwingAnimationImpl, ToolImpl, UnbreakableImpl,
+    UseCooldownImpl, get, get_mut, read_data, resolve_saved_enchantment,
 };
 
 use crate::item::Item;
@@ -856,6 +856,10 @@ impl ItemStack {
         // Create the item stack
         let mut item_stack = Self::new(count, item);
 
+        // Enchantments that aren't registered yet, kept in custom data rather than dropping
+        // the whole item.
+        let mut unknown_enchantments = Vec::new();
+
         // Process any additional data in the components compound
         if let Some(tag) = compound.get_compound("components") {
             for (name, data) in &tag.child_tags {
@@ -866,16 +870,89 @@ impl ItemStack {
                     }
                 } else {
                     let id = DataComponent::try_from_name(name)?;
-                    if id.is_persistent() {
-                        item_stack.patch.push((id, Some(read_data(id, data)?)));
+                    if !id.is_persistent() {
+                        continue;
                     }
+                    let component = match id {
+                        DataComponent::Enchantments => {
+                            let (known, unknown) =
+                                EnchantmentsImpl::read_data_keeping_unknown(data)?;
+                            unknown_enchantments.push((UNKNOWN_ENCHANTMENTS, unknown));
+                            known.to_dyn()
+                        }
+                        DataComponent::StoredEnchantments => {
+                            let (known, unknown) =
+                                StoredEnchantmentsImpl::read_data_keeping_unknown(data)?;
+                            unknown_enchantments.push((UNKNOWN_STORED_ENCHANTMENTS, unknown));
+                            known.to_dyn()
+                        }
+                        _ => read_data(id, data)?,
+                    };
+                    item_stack.patch.push((id, Some(component)));
                 }
             }
         }
 
+        // After the loop, so this can't race a custom data component read later on.
+        for (namespace, unknown) in unknown_enchantments {
+            for (name, level) in unknown {
+                item_stack.set_custom_data(namespace, &name, NbtTag::Int(level));
+            }
+        }
+        item_stack.restore_unknown_enchantments();
+
         Some(item_stack)
     }
+
+    /// Moves enchantments kept by [`Self::read_item_stack`] back into the enchantment
+    /// components once they resolve (e.g. the plugin defining them is installed again).
+    fn restore_unknown_enchantments(&mut self) {
+        for namespace in [UNKNOWN_ENCHANTMENTS, UNKNOWN_STORED_ENCHANTMENTS] {
+            let Some(NbtTag::Compound(kept)) = self
+                .custom_data_compound()
+                .and_then(|data| data.get(namespace))
+                .cloned()
+            else {
+                continue;
+            };
+            for (name, level) in &kept.child_tags {
+                let (Some(enchantment), Some(level)) =
+                    (resolve_saved_enchantment(name), level.extract_int())
+                else {
+                    continue;
+                };
+                if namespace == UNKNOWN_STORED_ENCHANTMENTS {
+                    let mut stored = self
+                        .get_data_component::<StoredEnchantmentsImpl>()
+                        .map(|s| s.enchantment.to_vec())
+                        .unwrap_or_default();
+                    if !stored.iter().any(|(e, _)| *e == enchantment) {
+                        stored.push((enchantment, level));
+                    }
+                    self.set_data_component(StoredEnchantmentsImpl {
+                        enchantment: Cow::from(stored),
+                    });
+                } else {
+                    let mut enchantments = self
+                        .get_data_component::<EnchantmentsImpl>()
+                        .map(|e| e.enchantment.to_vec())
+                        .unwrap_or_default();
+                    if !enchantments.iter().any(|(e, _)| *e == enchantment) {
+                        enchantments.push((enchantment, level));
+                    }
+                    self.set_data_component(EnchantmentsImpl {
+                        enchantment: Cow::from(enchantments),
+                    });
+                }
+                self.remove_custom_data(namespace, name);
+            }
+        }
+    }
 }
+
+/// Custom-data namespaces for enchantments that weren't registered when an item was loaded.
+const UNKNOWN_ENCHANTMENTS: &str = "pumpkin:unknown_enchantments";
+const UNKNOWN_STORED_ENCHANTMENTS: &str = "pumpkin:unknown_stored_enchantments";
 
 impl From<&RecipeResultStruct> for ItemStack {
     fn from(value: &RecipeResultStruct) -> Self {

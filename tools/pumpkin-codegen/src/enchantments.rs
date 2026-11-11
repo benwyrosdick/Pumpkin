@@ -1646,6 +1646,12 @@ pub fn build() -> TokenStream {
             fn registry_id(&self) -> u16 {
                 self.id as u16
             }
+            /// Static tags only hold vanilla ids; runtime enchantments keep their own tags.
+            #[inline]
+            fn has_tag(&self, tag: &'static Tag) -> bool {
+                tag.1.contains(&self.registry_id())
+                    || crate::enchantment_registry::has_tag(self, tag)
+            }
         }
         impl PartialEq for Enchantment {
             fn eq(&self, other: &Self) -> bool {
@@ -1676,22 +1682,26 @@ pub fn build() -> TokenStream {
         impl Enchantment {
             pub const ALL: &'static [&'static Self] = &[#all_variants];
 
+            /// Vanilla enchantments only; see `enchantment_registry::all` to include
+            /// runtime ones.
             pub fn all() -> Iter<'static, &'static Self> {
                 Self::ALL.iter()
             }
 
             #variants
 
+            /// Looks up a vanilla enchantment, then a runtime one.
             pub fn from_name(name: &str) -> Option<&'static Self> {
                 match name {
                     #name_to_type
-                    _ => None
+                    _ => crate::enchantment_registry::from_name(name)
                 }
             }
+            /// Looks up a vanilla enchantment, then a runtime one.
             pub fn from_id(id: u8) -> Option<&'static Self> {
                 match id {
                     #id_to_type
-                    _ => None
+                    _ => crate::enchantment_registry::from_id(id)
                 }
             }
 
