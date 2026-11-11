@@ -1,0 +1,21 @@
+crates/pumpkin-plugin-runtime/src/executor.rs
+  s_b7ce93d3f21964::t_fe53fd5d923c38 841-859,890-893,908
+crates/pumpkin-plugin-runtime/src/lib.rs
+  s_b7ce93d3f21964::t_4de9aafeed3008 82-103,163-171,824-854,910
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "09f2cdde3e77169921f3e3bbb21dbfdb26b7cc17",
+  "prompts": {},
+  "sessions": {
+    "s_b7ce93d3f21964": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "33b6a31b-5ae8-44ff-b9bf-a5ec8d432ee7",
+        "model": "unknown"
+      },
+      "human_author": "Ben Wyrosdick <ben.wyrosdick@gmail.com>"
+    }
+  }
+}
