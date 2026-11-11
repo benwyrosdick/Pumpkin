@@ -1,0 +1,61 @@
+crates/pumpkin-command/src/argument_types/resource.rs
+  s_b7ce93d3f21964::t_ebc797fd569f28 98-100,182-185
+crates/pumpkin-core/src/entity/passive/villager/mod.rs
+  s_b7ce93d3f21964::t_7faecc66e51292 71-74
+crates/pumpkin-core/src/net/java/login/known_packs.rs
+  s_b7ce93d3f21964::t_67f6dbef7cd8b3 9-17
+crates/pumpkin-core/src/server/enchantment.rs
+  s_b7ce93d3f21964::t_799db1054fad09 1-4,7,10-11,22-105,108-112,131-132,134-138,156-318
+crates/pumpkin-data/src/data_component_impl/combat.rs
+  s_b7ce93d3f21964::t_11d457ed523a13 65-98,101-115,1257-1271
+crates/pumpkin-data/src/enchantment_registry.rs
+  s_b7ce93d3f21964::t_779a0840bdfdbe 1-516
+crates/pumpkin-data/src/generated/enchantment.rs
+  s_b7ce93d3f21964::t_a14675f4a30c6e 391-395,468-469,2815,2865,2868,2914
+crates/pumpkin-data/src/item_stack/mod.rs
+  s_b7ce93d3f21964::t_2f98579299ca3f 7-8,859-862,873-874,876-891,896-903,906-950,953-956
+crates/pumpkin-data/src/lib.rs
+  s_b7ce93d3f21964::t_8d58f517ad1375 198-200
+crates/pumpkin-data/tests/enchantment_registry_frozen.rs
+  s_b7ce93d3f21964::t_faafc4b72f54a2 1-82
+crates/pumpkin-inventory/src/enchanting/enchanting_screen_handler.rs
+  s_b7ce93d3f21964::t_73ccaa29493390 197-198
+crates/pumpkin-plugin-api/src/enchantment.rs
+  s_b7ce93d3f21964::t_0c0f690544013c 27-29,48-49,90-110,131,191-248,319,322
+crates/pumpkin-plugin-api/src/lib.rs
+  s_b7ce93d3f21964::t_3648336267ea7f 149-150
+crates/pumpkin-plugin-wit/v0.1/enchantments.wit
+  s_b7ce93d3f21964::t_dd4c5731a865ce 88-109,111-116,118,121-123
+crates/pumpkin-wasm-host-v0_1/src/enchantment.rs
+  s_b7ce93d3f21964::t_80f054ef4b39ee 3-4,6-7,12-36,43-44,46-64,151
+crates/pumpkin-wasm-host-v0_1/src/events/enchantment.rs
+  s_b7ce93d3f21964::t_891f4914255e17 94-99,133-145
+crates/pumpkin-wasm-host-v0_1/src/item_stack.rs
+  s_b7ce93d3f21964::t_6bfe7efc887616 27,42-61,169-175,258,299-319,332,357-367,378-383
+crates/pumpkin-wasm-host-v0_2/src/enchantment.rs
+  s_b7ce93d3f21964::t_86a76f382ef388 7,35,114
+crates/pumpkin-wasm-host-v0_2/src/events/enchantment.rs
+  s_b7ce93d3f21964::t_15bc0abdf42e3a 94-99,133-145
+crates/pumpkin-wasm-host-v0_2/src/item_stack.rs
+  s_b7ce93d3f21964::t_518e91f9c7c43c 30,45-64,340-346,429,470-490,503,528-538,549-554
+tools/pumpkin-codegen/src/enchantments.rs
+  s_b7ce93d3f21964::t_a2652fc7a71f45 1649-1654,1685-1686,1693,1697,1700,1704
+crates/pumpkin-wasm-host-v0_1/src/bindings.rs
+  s_b7ce93d3f21964::t_8b75533327d2b6 88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e355d28b782fa8fac59f9a66274cf754ac1a9598",
+  "prompts": {},
+  "sessions": {
+    "s_b7ce93d3f21964": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "33b6a31b-5ae8-44ff-b9bf-a5ec8d432ee7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Ben Wyrosdick <ben.wyrosdick@gmail.com>"
+    }
+  }
+}
