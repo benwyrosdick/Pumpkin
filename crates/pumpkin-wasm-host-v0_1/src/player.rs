@@ -2846,6 +2846,52 @@ impl pumpkin::plugin::player::HostPlayer for PluginHostState {
 }
 
 impl pumpkin::plugin::player::HostPlayerWithStore<PluginHostState> for HasSelf<PluginHostState> {
+    async fn break_block(
+        mut host: Access<'_, PluginHostState, Self>,
+        player: Resource<Player>,
+        pos: pumpkin::plugin::common::BlockPos,
+        drop_items: bool,
+    ) -> wasmtime::Result<bool> {
+        let (player, plugin) = {
+            let state = host.get();
+            (state.get(&player)?.clone(), plugin_from_state(state)?)
+        };
+
+        plugin
+            .store
+            .pump_blocking(&mut host, move || {
+                let world = player.world();
+                let pos = pumpkin_util::math::position::BlockPos::new(pos.x, pos.y, pos.z);
+                let (block, state) = world.get_block_and_state(&pos);
+                // The same drop rule as a player mining the block.
+                let drops = drop_items
+                    && player.gamemode.load() != pumpkin_util::GameMode::Creative
+                    && player.can_harvest(state, block);
+                let flags = if drops {
+                    pumpkin_world::world::BlockFlags::NOTIFY_ALL
+                } else {
+                    pumpkin_world::world::BlockFlags::NOTIFY_ALL
+                        | pumpkin_world::world::BlockFlags::SKIP_DROPS
+                };
+                let Some(broken) = world.break_block(&pos, Some(&player), flags) else {
+                    return false;
+                };
+                // `break_block` leaves the breaking player out of the break effect, since
+                // a Java client predicts the effect for blocks it mines itself. It didn't
+                // mine this one.
+                player.try_send_client_packet(
+                    &pumpkin_protocol::java::client::play::CWorldEvent::new(
+                        pumpkin_data::world::WorldEvent::ParticlesDestroyBlock as i32,
+                        pos,
+                        broken.as_u16().into(),
+                        false,
+                    ),
+                );
+                true
+            })
+            .await
+    }
+
     async fn open_ender_chest(
         mut host: Access<'_, PluginHostState, Self>,
         player: Resource<Player>,

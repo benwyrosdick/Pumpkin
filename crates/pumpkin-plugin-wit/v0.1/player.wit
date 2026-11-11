@@ -1098,6 +1098,17 @@ interface player {
         /// Opens the player's ender chest inventory screen for them.
         open-ender-chest: func ();
 
+        /// Breaks the block at `pos` in the player's world as if the player had mined it.
+        ///
+        /// Fires the block break event (so protection plugins can cancel it) and respects
+        /// spawn protection. If `drop-items` is true, drops the block's loot for the held
+        /// tool (Fortune, Silk Touch) unless the player is in creative or the tool can't
+        /// harvest the block. Everyone nearby, this player included, sees the break
+        /// particles and hears the sound. Doesn't damage the held tool.
+        ///
+        /// Returns whether the block was broken.
+        break-block: func(pos: block-pos, drop-items: bool) -> bool;
+
         // Status
 
         /// Returns the player's current health.

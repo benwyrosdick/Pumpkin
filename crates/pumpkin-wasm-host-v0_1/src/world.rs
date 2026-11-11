@@ -1151,6 +1151,22 @@ impl pumpkin::plugin::world::HostWorld for PluginHostState {
 }
 
 impl pumpkin::plugin::world::HostWorldWithStore<PluginHostState> for HasSelf<PluginHostState> {
+    async fn drop_item(
+        mut host: Access<'_, PluginHostState, Self>,
+        world: Resource<World>,
+        pos: WitBlockPos,
+        stack: Resource<crate::pumpkin::plugin::item_stack::ItemStack>,
+    ) -> wasmtime::Result<()> {
+        let (world, plugin) = world_and_plugin(host.get(), &world)?;
+        let stack = host.get().take(stack)?;
+        let stack = stack.lock().await.clone();
+        let pos = BlockPos::new(pos.x, pos.y, pos.z);
+        plugin
+            .store
+            .pump_blocking(&mut host, move || world.drop_stack(&pos, stack))
+            .await
+    }
+
     async fn set_raining(
         mut host: Access<'_, PluginHostState, Self>,
         world: Resource<World>,

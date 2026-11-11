@@ -900,6 +900,9 @@ interface %world {
         /// Spawns an entity of the specified type at the given position.
         spawn-entity: func(entity-type: entity-type, pos: position) -> entity;
 
+        /// Drops an item stack at the block position, the way a broken block drops its loot.
+        drop-item: func(pos: block-pos, stack: item-stack);
+
         /// Returns a list of all entities in this world.
         get-entities: func() -> list<entity>;
 
